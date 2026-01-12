@@ -1,1 +1,2 @@
 # dashboard-ewz
+ └── index.html   ✅
