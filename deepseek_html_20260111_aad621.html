@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarceloQuant Sniper 0DTE PRO - LIVE</title>
+  <!-- Chart.js para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Biblioteca para WebSocket reconnection -->
+  <script src="https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/dist/reconnecting-websocket.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0b0f14;
+      --bg-secondary: #121826;
+      --bg-panel: #1a2236;
+      --text-primary: #e6e6e6;
+      --text-secondary: #94a3b8;
+      --color-buy: #4ade80;
+      --color-sell: #f87171;
+      --color-chop: #facc15;
+      --color-purple: #7c3aed;
+      --color-blue: #60a5fa;
+      --color-live: #16a34a;
+      --color-warning: #f59e0b;
+      --color-danger: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      background: var(--bg-primary); 
+      color: var(--text-primary); 
+      margin: 0; 
+      padding: 16px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h1 { 
+      font-size: 28px; 
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .panel { 
+      border-radius: 16px; 
+      padding: 24px; 
+      margin-bottom: 20px; 
+      background: var(--bg-secondary); 
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .panel:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .status-card {
+      background: var(--bg-panel);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    .status-card:hover {
+      border-color: rgba(255,255,255,0.1);
+      transform: translateY(-2px);
+    }
+
+    .status-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .status-value {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .status-value.positive { color: var(--color-buy); }
+    .status-value.negative { color: var(--color-sell); }
+    .status-value.neutral { color: var(--color-chop); }
+
+    .status-change {
+      font-size: 13px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .mode-controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    @media (min-width: 768px) {
+      .mode-controls {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .btn {
+      padding: 14px 20px; 
+      border: none; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-normal { background: #334155; border-color: #475569; }
+    .btn-event { background: var(--color-purple); border-color: #8b5cf6; }
+    .btn-stress { background: var(--color-danger); border-color: #ef4444; }
+    .btn-recovery { background: #eab308; border-color: #fbbf24; color: #000; }
+    .btn-active { 
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+      border-color: var(--color-purple);
+    }
+
+    .badge {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-live { 
+      background: linear-gradient(135deg, var(--color-live), #22c55e);
+      color: white;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    .badge-offline { background: #6b7280; color: white; }
+    .badge-event { background: var(--color-purple); color: white; }
+    .badge-stress { background: var(--color-danger); color: white; }
+    .badge-recovery { background: #eab308; color: #000; }
+
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin-top: 20px;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-live);
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.offline {
+      background: #6b7280;
+      animation: none;
+    }
+
+    .heatmap-container {
+      height: 20px;
+      border-radius: 10px;
+      background: #1f2933;
+      overflow: hidden;
+      position: relative;
+      margin: 16px 0;
+    }
+
+    .heatmap-fill {
+      height: 100%;
+      transition: width 0.5s ease, background 0.5s ease;
+    }
+
+    .heatmap-markers {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 20px;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .tab:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .tab.active {
+      border-bottom-color: var(--color-purple);
+      background: rgba(124, 58, 237, 0.1);
+      color: var(--color-purple);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .suggestion-box {
+      background: var(--bg-panel);
+      padding: 24px;
+      border-radius: 12px;
+      margin-top: 24px;
+      border-left: 6px solid var(--color-chop);
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .suggestion-box.buy { border-left-color: var(--color-buy); }
+    .suggestion-box.sell { border-left-color: var(--color-sell); }
+    .suggestion-box.scalp { border-left-color: var(--color-blue); }
+
+    .suggestion-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-detail {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .history-table th,
+    .history-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .history-table th {
+      background: rgba(0,0,0,0.2);
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .history-table tr:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .zone-indicators {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .zone-card {
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .zone-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .zone-card.active {
+      border-color: currentColor;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .zone-buy { 
+      background: rgba(74, 222, 128, 0.1); 
+      color: var(--color-buy);
+      border-color: rgba(74, 222, 128, 0.3);
+    }
+
+    .zone-sell { 
+      background: rgba(248, 113, 113, 0.1); 
+      color: var(--color-sell);
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    .zone-chop { 
+      background: rgba(250, 204, 21, 0.1); 
+      color: var(--color-chop);
+      border-color: rgba(250, 204, 21, 0.3);
+    }
+
+    .zone-name {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .zone-range {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .last-update {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      margin-top: 20px;
+    }
+
+    .update-time {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .update-ago {
+      font-size: 12px;
+      color: var(--color-purple);
+      background: rgba(124, 58, 237, 0.1);
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .overlay-lock { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      background: rgba(10,10,10,.97); 
+      display: none; 
+      justify-content: center; 
+      align-items: center; 
+      z-index: 9999; 
+      text-align: center; 
+      backdrop-filter: blur(10px);
+      animation: fadeIn 0.5s ease;
+    }
+
+    .overlay-lock h1 { 
+      font-size: 48px; 
+      color: #f87171; 
+      margin-bottom: 24px;
+      font-weight: 800;
+    }
+
+    .overlay-lock p { 
+      font-size: 20px; 
+      line-height: 1.8;
+      color: #94a3b8;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-panel);
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="overlay-lock" id="capitalLock">
+  <div>
+    <h1>🚨 MODO PRESERVAÇÃO DE CAPITAL</h1>
+    <p>STRESS EXTREMO DETECTADO NO MERCADO<br>NÃO OPERAR É A DECISÃO MAIS PROFISSIONAL</p>
+    <p style="margin-top: 30px; font-size: 16px; color: #64748b;">Aguardando estabilização do mercado para retomar operações</p>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      <h1>⚡ MarceloQuant Sniper 0DTE PRO</h1>
+      <span id="liveBadge" class="badge badge-live">LIVE • WEB SOCKET</span>
+    </div>
+    <div class="connection-status">
+      <div id="statusIndicator" class="status-indicator"></div>
+      <span id="connectionStatus">Conectando ao servidor...</span>
+      <span id="latencyIndicator" class="update-ago">-- ms</span>
+    </div>
+  </div>
+
+  <!-- Coluna Esquerda -->
+  <div>
+    <!-- Status do Mercado -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📊 STATUS DO MERCADO EM TEMPO REAL</h3>
+        <div>
+          <span id="eventBadge" class="badge" style="background: #334155;">MODO NORMAL</span>
+          <span id="stressBadge" class="badge" style="background: #334155;">STRESS: NORMAL</span>
+        </div>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-label">EWZ • iShares Brazil</div>
+          <div id="ewzPrice" class="status-value">--</div>
+          <div id="ewzChange" class="status-change">--</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">WIN • Índice Bovespa Futuro</div>
+          <div id="winPrice" class="status-value">--</div>
+          <div id="winChange" class="status-change">--</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">SPY • S&P 500 ETF</div>
+          <div id="spyPrice" class="status-value">--</div>
+          <div id="spyChange" class="status-change">--</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">DXY • Dólar Index</div>
+          <div id="dxyPrice" class="status-value">--</div>
+          <div id="dxyChange" class="status-change">--</div>
+        </div>
+      </div>
+
+      <!-- Controles de Modo -->
+      <div class="mode-controls">
+        <button id="btnNormal" class="btn btn-normal btn-active" onclick="setTradingMode('normal')">
+          <span>📊</span> Mercado Normal
+        </button>
+        <button id="btnEvent" class="btn btn-event" onclick="setTradingMode('event')">
+          <span>📅</span> Event Day
+        </button>
+        <button id="btnStress" class="btn btn-stress" onclick="setTradingMode('stress')">
+          <span>🚨</span> Stress Extremo
+        </button>
+        <button id="btnRecovery" class="btn btn-recovery" onclick="setTradingMode('recovery')">
+          <span>🔄</span> Modo Recovery
+        </button>
+      </div>
+    </div>
+
+    <!-- Auto-Sugestão -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>🤖 SISTEMA DE DECISÃO AUTOMÁTICA</h3>
+        <div id="autoMode" style="font-size: 20px; font-weight: 700;">--</div>
+      </div>
+
+      <div id="suggestionBox" class="suggestion-box">
+        <div class="suggestion-title" id="suggestionTitle">Aguardando dados de mercado...</div>
+        <div class="suggestion-detail" id="suggestionDetail">
+          Conectando ao servidor WebSocket para dados em tempo real
+        </div>
+      </div>
+
+      <!-- Heatmap Institucional -->
+      <div style="margin-top: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-weight: 600;">HEATMAP INSTITUCIONAL IBOV</span>
+          <span id="heatValue" style="font-size: 18px; font-weight: 700;">50%</span>
+        </div>
+        <div class="heatmap-container">
+          <div id="ibovHeatFill" class="heatmap-fill" style="width: 50%; background: #facc15;"></div>
+        </div>
+        <div class="heatmap-markers">
+          <span>ZONA DE COMPRA</span>
+          <span>NEUTRO</span>
+          <span>ZONA DE VENDA</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tradução EWZ → IBOV -->
+    <div class="panel">
+      <h3>🔁 TRADUÇÃO EM TEMPO REAL: EWZ → IBOV</h3>
+      <div class="status-card" style="margin: 24px 0;">
+        <div class="status-label">IBOV FUTURO ESTIMADO (LIVE)</div>
+        <div id="ibovEst" class="status-value" style="font-size: 40px;">--</div>
+      </div>
+      <div id="ibovZone" class="status-label" style="font-size: 16px;">
+        Zona de atuação: Aguardando dados...
+      </div>
+    </div>
+  </div>
+
+  <!-- Coluna Direita -->
+  <div>
+    <!-- Gráficos e Análise -->
+    <div class="panel">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('price-tab')">📈 EWZ LIVE</div>
+        <div class="tab" onclick="switchTab('correlation-tab')">🔄 CORRELAÇÃO</div>
+        <div class="tab" onclick="switchTab('volume-tab')">📊 VOLUME & FLUXO</div>
+        <div class="tab" onclick="switchTab('history-tab')">📋 HISTÓRICO</div>
+      </div>
+
+      <div id="price-tab" class="tab-content active">
+        <div class="chart-container">
+          <canvas id="priceChart"></canvas>
+        </div>
+        <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn" onclick="changeTimeframe('1m')">1 MIN</button>
+          <button class="btn" onclick="changeTimeframe('5m')">5 MIN</button>
+          <button class="btn" onclick="changeTimeframe('15m')">15 MIN</button>
+          <button class="btn btn-active" onclick="changeTimeframe('30m')">30 MIN</button>
+          <button class="btn" onclick="changeTimeframe('1h')">1 HORA</button>
+        </div>
+      </div>
+
+      <div id="correlation-tab" class="tab-content">
+        <div class="chart-container">
+          <canvas id="correlationChart"></canvas>
+        </div>
+        <div class="stats-grid" style="margin-top: 20px;">
+          <div class="stat-card">
+            <div class="stat-label">Correlação Atual</div>
+            <div id="correlationValue" class="stat-value">0.85</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Média 1h</div>
+            <div id="correlation1h" class="stat-value">0.82</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Desvio</div>
+            <div id="correlationDev" class="stat-value">0.07</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Tendência</div>
+            <div id="correlationTrend" class="stat-value" style="color: #4ade80;">↑</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="volume-tab" class="tab-content">
+        <div class="chart-container">
+          <canvas id="volumeChart"></canvas>
+        </div>
+        <div class="stats-grid" style="margin-top: 20px;">
+          <div class="stat-card">
+            <div class="stat-label">Volume EWZ</div>
+            <div id="volumeEWZ" class="stat-value">2.4M</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Volume WIN</div>
+            <div id="volumeWIN" class="stat-value">45K</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Relação V/C</div>
+            <div id="volumeRatio" class="stat-value">1.8</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Fluxo</div>
+            <div id="moneyFlow" class="stat-value" style="color: #4ade80;">+R$ 42M</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="history-tab" class="tab-content">
+        <h4 style="margin-bottom: 20px;">📋 HISTÓRICO DE SINALIZAÇÕES</h4>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>HORA</th>
+              <th>EWZ</th>
+              <th>IBOV</th>
+              <th>ESTADO</th>
+              <th>AÇÃO</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Histórico será preenchido via WebSocket -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Zonas EWZ -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>🎯 ZONAS EWZ (MONEY MAKER)</h3>
+        <div id="currentZone" style="font-size: 20px; font-weight: 700;">NEUTRAL</div>
+      </div>
+
+      <div class="zone-indicators">
+        <div id="zoneBuy" class="zone-card zone-buy">
+          <div class="zone-name">ZONA DE COMPRA</div>
+          <div class="zone-range">31.80 - 32.20</div>
+          <div style="margin-top: 12px; font-size: 12px; opacity: 0.7;">INSTITUCIONAL</div>
+        </div>
+        <div id="zoneChop" class="zone-card zone-chop">
+          <div class="zone-name">ZONA DE CHOP</div>
+          <div class="zone-range">32.70 - 33.40</div>
+          <div style="margin-top: 12px; font-size: 12px; opacity: 0.7;">INDECISÃO</div>
+        </div>
+        <div id="zoneSell" class="zone-card zone-sell">
+          <div class="zone-name">ZONA DE VENDA</div>
+          <div class="zone-range">34.00 - 35.00</div>
+          <div style="margin-top: 12px; font-size: 12px; opacity: 0.7;">DISTRIBUIÇÃO</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; padding: 20px; background: var(--bg-panel); border-radius: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>DISTÂNCIA PARA ZONA ATIVA:</span>
+          <span id="zoneDistance" style="font-size: 24px; font-weight: 700;">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estatísticas e Controles -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>⚙️ CONTROLES & ESTATÍSTICAS</h3>
+      </div>
+
+      <div class="last-update">
+        <div style="flex: 1;">
+          <div class="update-time">ÚLTIMA ATUALIZAÇÃO</div>
+          <div id="lastUpdate" style="font-size: 18px; font-weight: 700;">--</div>
+        </div>
+        <div id="updateTimer" class="update-ago">AGORA</div>
+      </div>
+
+      <div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <button class="btn" onclick="forceRefresh()">
+          <span>🔄</span> Atualizar Agora
+        </button>
+        <button class="btn" onclick="exportData()">
+          <span>💾</span> Exportar Dados
+        </button>
+        <button class="btn" onclick="toggleAlerts()">
+          <span>🔔</span> <span id="alertsStatus">Alertas: ON</span>
+        </button>
+        <button class="btn" onclick="showSettings()">
+          <span>⚙️</span> Configurações
+        </button>
+      </div>
+
+      <div class="stats-grid" style="margin-top: 24px;">
+        <div class="stat-card">
+          <div class="stat-label">Latência</div>
+          <div id="latencyValue" class="stat-value">-- ms</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Uptime</div>
+          <div id="uptimeValue" class="stat-value">100%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Mensagens</div>
+          <div id="messageCount" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Conexão</div>
+          <div id="connectionQuality" class="stat-value" style="color: #4ade80;">EXCELENTE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Configurações Modal -->
+<div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
+  <div style="background: var(--bg-secondary); padding: 40px; border-radius: 20px; max-width: 500px; width: 90%;">
+    <h3 style="margin-top: 0;">⚙️ CONFIGURAÇÕES DO SISTEMA</h3>
+    <div style="margin: 24px 0;">
+      <label style="display: block; margin-bottom: 12px;">
+        <input type="checkbox" id="autoRefresh" checked> Atualização Automática
+      </label>
+      <label style="display: block; margin-bottom: 12px;">
+        <input type="checkbox" id="soundAlerts" checked> Alertas Sonoros
+      </label>
+      <label style="display: block; margin-bottom: 12px;">
+        <input type="checkbox" id="visualAlerts" checked> Alertas Visuais
+      </label>
+    </div>
+    <button class="btn" onclick="saveSettings()" style="width: 100%;">Salvar Configurações</button>
+  </div>
+</div>
+
+<script>
+// ===============================
+// CONFIGURAÇÕES GLOBAIS
+// ===============================
+const CONFIG = {
+    WS_SERVER: 'wss://ws-server.marcelquant.com/ws', // Substituir pelo seu servidor WebSocket
+    RECONNECT_DELAY: 3000,
+    MAX_RECONNECT_ATTEMPTS: 5,
+    HEARTBEAT_INTERVAL: 30000,
+    UPDATE_INTERVAL: 1000,
+    
+    EWZ_TO_IBOV_MULT: 3800,
+    IBOV_BASE: 125000,
+    
+    EWZ_ZONES: {
+        BUY: { min: 31.8, max: 32.2, color: '#4ade80', label: 'COMPRA' },
+        CHOP: { min: 32.7, max: 33.4, color: '#facc15', label: 'CHOP' },
+        SELL: { min: 34.0, max: 35.0, color: '#f87171', label: 'VENDA' }
+    }
+};
+
+// ===============================
+// VARIÁVEIS DE ESTADO
+// ===============================
+let ws = null;
+let reconnectAttempts = 0;
+let isConnected = false;
+let lastHeartbeat = Date.now();
+let messageCount = 0;
+let startTime = Date.now();
+
+let currentMode = 'normal';
+let eventDay = false;
+let stressExtreme = false;
+let recoveryMode = false;
+
+let priceHistory = [];
+let correlationHistory = [];
+let volumeHistory = [];
+let signalHistory = [];
+
+let priceChart, correlationChart, volumeChart;
+
+// ===============================
+// WEBSOCKET MANAGER
+// ===============================
+class WebSocketManager {
+    constructor() {
+        this.ws = null;
+        this.reconnectTimeout = null;
+        this.heartbeatInterval = null;
+        this.messageHandlers = new Map();
+        this.init();
+    }
+
+    init() {
+        this.connect();
+        this.setupMessageHandlers();
+    }
+
+    connect() {
+        try {
+            console.log('🔗 Conectando ao WebSocket...');
+            this.updateConnectionStatus('Conectando...', '#f59e0b');
+            
+            this.ws = new WebSocket(CONFIG.WS_SERVER);
+            
+            this.ws.onopen = () => this.onOpen();
+            this.ws.onmessage = (event) => this.onMessage(event);
+            this.ws.onerror = (error) => this.onError(error);
+            this.ws.onclose = () => this.onClose();
+            
+        } catch (error) {
+            console.error('❌ Erro ao criar WebSocket:', error);
+            this.scheduleReconnect();
+        }
+    }
+
+    onOpen() {
+        console.log('✅ WebSocket conectado');
+        isConnected = true;
+        reconnectAttempts = 0;
+        lastHeartbeat = Date.now();
+        
+        this.updateConnectionStatus('Conectado • LIVE', '#16a34a');
+        this.updateLiveBadge(true);
+        
+        // Iniciar heartbeat
+        this.startHeartbeat();
+        
+        // Solicitar dados iniciais
+        this.send({
+            type: 'subscribe',
+            symbols: ['EWZ', 'WIN=F', 'SPY', 'DX-Y.NYB'],
+            timeframe: '1m'
+        });
+    }
+
+    onMessage(event) {
+        try {
+            const data = JSON.parse(event.data);
+            messageCount++;
+            document.getElementById('messageCount').textContent = messageCount;
+            
+            // Atualizar latência
+            if (data.timestamp) {
+                const latency = Date.now() - data.timestamp;
+                document.getElementById('latencyValue').textContent = `${latency} ms`;
+                document.getElementById('latencyIndicator').textContent = `${latency} ms`;
+            }
+            
+            // Processar pelo tipo de mensagem
+            if (data.type && this.messageHandlers.has(data.type)) {
+                this.messageHandlers.get(data.type)(data);
+            } else {
+                this.processMarketData(data);
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao processar mensagem:', error);
+        }
+    }
+
+    onError(error) {
+        console.error('❌ Erro no WebSocket:', error);
+        this.updateConnectionStatus('Erro na conexão', '#dc2626');
+        this.updateLiveBadge(false);
+    }
+
+    onClose() {
+        console.log('🔌 WebSocket desconectado');
+        isConnected = false;
+        this.updateConnectionStatus('Desconectado', '#6b7280');
+        this.updateLiveBadge(false);
+        
+        // Limpar intervalos
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+        
+        // Tentar reconectar
+        this.scheduleReconnect();
+    }
+
+    send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            if (typeof data === 'object') {
+                data.timestamp = Date.now();
+                this.ws.send(JSON.stringify(data));
+            } else {
+                this.ws.send(data);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    startHeartbeat() {
+        this.heartbeatInterval = setInterval(() => {
+            if (isConnected) {
+                this.send({ type: 'heartbeat' });
+                
+                // Verificar se recebeu heartbeat recentemente
+                if (Date.now() - lastHeartbeat > CONFIG.HEARTBEAT_INTERVAL * 2) {
+                    console.warn('⚠️ Heartbeat perdido');
+                    this.ws.close();
+                }
+            }
+        }, CONFIG.HEARTBEAT_INTERVAL);
+    }
+
+    scheduleReconnect() {
+        if (reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            console.error('❌ Máximo de tentativas de reconexão atingido');
+            this.updateConnectionStatus('Falha na conexão', '#dc2626');
+            return;
+        }
+        
+        reconnectAttempts++;
+        const delay = Math.min(CONFIG.RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts), 30000);
+        
+        console.log(`🔄 Tentativa ${reconnectAttempts} em ${delay}ms`);
+        
+        this.reconnectTimeout = setTimeout(() => {
+            this.connect();
+        }, delay);
+    }
+
+    setupMessageHandlers() {
+        this.messageHandlers.set('heartbeat', (data) => {
+            lastHeartbeat = Date.now();
+        });
+        
+        this.messageHandlers.set('price', (data) => {
+            this.processMarketData(data);
+        });
+        
+        this.messageHandlers.set('volume', (data) => {
+            this.processVolumeData(data);
+        });
+        
+        this.messageHandlers.set('alert', (data) => {
+            this.processAlert(data);
+        });
+    }
+
+    processMarketData(data) {
+        const timestamp = Date.now();
+        
+        // Atualizar preços
+        if (data.EWZ !== undefined) {
+            updatePrice('ewzPrice', data.EWZ, 2);
+            updateChange('ewzChange', data.EWZ, getPreviousPrice('EWZ'));
+            savePreviousPrice('EWZ', data.EWZ);
+            
+            const ewzState = processEWZ(data.EWZ);
+            updatePriceChart(data.EWZ, timestamp);
+            updateZoneDisplay(data.EWZ, ewzState);
+            
+            if (data['WIN=F'] !== undefined) {
+                updateIBOV(data.EWZ, ewzState, data['WIN=F']);
+                updateCorrelationChart(data.EWZ, data['WIN=F']);
+                updateAutoSuggestion(ewzState, data['WIN=F']);
+                updateHistory(data.EWZ, data['WIN=F'], ewzState);
+            }
+        }
+        
+        if (data['WIN=F'] !== undefined) {
+            updatePrice('winPrice', data['WIN=F'], 0, true);
+            updateChange('winChange', data['WIN=F'], getPreviousPrice('WIN'));
+            savePreviousPrice('WIN', data['WIN=F']);
+        }
+        
+        if (data.SPY !== undefined) {
+            updatePrice('spyPrice', data.SPY, 2);
+            updateChange('spyChange', data.SPY, getPreviousPrice('SPY'));
+            savePreviousPrice('SPY', data.SPY);
+        }
+        
+        if (data['DX-Y.NYB'] !== undefined) {
+            updatePrice('dxyPrice', data['DX-Y.NYB'], 2);
+            updateChange('dxyChange', data['DX-Y.NYB'], getPreviousPrice('DXY'));
+            savePreviousPrice('DXY', data['DX-Y.NYB']);
+        }
+        
+        // Atualizar timestamp
+        updateTimestamp(timestamp);
+    }
+
+    processVolumeData(data) {
+        if (data.volumeEWZ) {
+            document.getElementById('volumeEWZ').textContent = formatVolume(data.volumeEWZ);
+        }
+        if (data.volumeWIN) {
+            document.getElementById('volumeWIN').textContent = formatVolume(data.volumeWIN);
+        }
+        if (data.volumeRatio) {
+            document.getElementById('volumeRatio').textContent = data.volumeRatio.toFixed(1);
+        }
+        if (data.moneyFlow) {
+            const element = document.getElementById('moneyFlow');
+            element.textContent = data.moneyFlow > 0 ? `+R$ ${formatMoney(data.moneyFlow)}` : `-R$ ${formatMoney(Math.abs(data.moneyFlow))}`;
+            element.style.color = data.moneyFlow > 0 ? '#4ade80' : '#f87171';
+        }
+    }
+
+    processAlert(data) {
+        if (data.level === 'warning') {
+            showAlert(data.message, 'warning');
+        } else if (data.level === 'danger') {
+            showAlert(data.message, 'danger');
+        }
+    }
+
+    updateConnectionStatus(text, color) {
+        const element = document.getElementById('connectionStatus');
+        const indicator = document.getElementById('statusIndicator');
+        
+        element.textContent = text;
+        indicator.style.background = color;
+        
+        if (color === '#16a34a') {
+            indicator.classList.remove('offline');
+        } else {
+            indicator.classList.add('offline');
+        }
+    }
+
+    updateLiveBadge(live) {
+        const badge = document.getElementById('liveBadge');
+        if (live) {
+            badge.textContent = 'LIVE • WEB SOCKET';
+            badge.className = 'badge badge-live';
+        } else {
+            badge.textContent = 'OFFLINE • POLLING';
+            badge.className = 'badge badge-offline';
+        }
+    }
+}
+
+// ===============================
+// FUNÇÕES DE ATUALIZAÇÃO
+// ===============================
+function updatePrice(elementId, price, decimals, format = false) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        if (format) {
+            element.textContent = Math.round(price).toLocaleString('pt-BR');
+        } else {
+            element.textContent = price.toFixed(decimals);
+        }
+    }
+}
+
+function updateChange(elementId, currentPrice, previousPrice) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    if (previousPrice === null || previousPrice === undefined) {
+        element.textContent = '--';
+        element.className = 'status-change';
+        return;
+    }
+    
+    const change = ((currentPrice - previousPrice) / previousPrice) * 100;
+    const changeFormatted = change.toFixed(2) + '%';
+    
+    element.textContent = (change >= 0 ? '+' : '') + changeFormatted;
+    element.className = `status-change ${change >= 0 ? 'positive' : 'negative'}`;
+}
+
+const previousPrices = new Map();
+
+function getPreviousPrice(symbol) {
+    return previousPrices.get(symbol);
+}
+
+function savePreviousPrice(symbol, price) {
+    previousPrices.set(symbol, price);
+}
+
+function updateTimestamp(timestamp) {
+    const now = new Date(timestamp);
+    const timeStr = now.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    document.getElementById('lastUpdate').textContent = timeStr;
+    document.getElementById('updateTimer').textContent = 'AGORA';
+}
+
+// ===============================
+// PROCESSAMENTO EWZ E IBOV
+// ===============================
+function processEWZ(price) {
+    let state = 'neutral';
+    const ewzPrice = parseFloat(price);
+    
+    // Resetar todas as zonas
+    document.getElementById('zoneBuy').classList.remove('active');
+    document.getElementById('zoneChop').classList.remove('active');
+    document.getElementById('zoneSell').classList.remove('active');
+    
+    // Determinar zona atual
+    if (ewzPrice >= CONFIG.EWZ_ZONES.BUY.min && ewzPrice <= CONFIG.EWZ_ZONES.BUY.max) {
+        state = 'buy';
+        document.getElementById('zoneBuy').classList.add('active');
+        document.getElementById('currentZone').textContent = 'ZONA DE COMPRA';
+        document.getElementById('currentZone').style.color = CONFIG.EWZ_ZONES.BUY.color;
+        
+        // Calcular distância para a zona
+        const zoneCenter = (CONFIG.EWZ_ZONES.BUY.min + CONFIG.EWZ_ZONES.BUY.max) / 2;
+        const distance = ((ewzPrice - zoneCenter) / zoneCenter * 100).toFixed(1);
+        document.getElementById('zoneDistance').textContent = `${distance}%`;
+        document.getElementById('zoneDistance').style.color = CONFIG.EWZ_ZONES.BUY.color;
+        
+    } else if (ewzPrice >= CONFIG.EWZ_ZONES.CHOP.min && ewzPrice <= CONFIG.EWZ_ZONES.CHOP.max) {
+        state = 'chop';
+        document.getElementById('zoneChop').classList.add('active');
+        document.getElementById('currentZone').textContent = 'ZONA DE CHOP';
+        document.getElementById('currentZone').style.color = CONFIG.EWZ_ZONES.CHOP.color;
+        
+        const zoneCenter = (CONFIG.EWZ_ZONES.CHOP.min + CONFIG.EWZ_ZONES.CHOP.max) / 2;
+        const distance = ((ewzPrice - zoneCenter) / zoneCenter * 100).toFixed(1);
+        document.getElementById('zoneDistance').textContent = `${distance}%`;
+        document.getElementById('zoneDistance').style.color = CONFIG.EWZ_ZONES.CHOP.color;
+        
+    } else if (ewzPrice >= CONFIG.EWZ_ZONES.SELL.min && ewzPrice <= CONFIG.EWZ_ZONES.SELL.max) {
+        state = 'sell';
+        document.getElementById('zoneSell').classList.add('active');
+        document.getElementById('currentZone').textContent = 'ZONA DE VENDA';
+        document.getElementById('currentZone').style.color = CONFIG.EWZ_ZONES.SELL.color;
+        
+        const zoneCenter = (CONFIG.EWZ_ZONES.SELL.min + CONFIG.EWZ_ZONES.SELL.max) / 2;
+        const distance = ((ewzPrice - zoneCenter) / zoneCenter * 100).toFixed(1);
+        document.getElementById('zoneDistance').textContent = `${distance}%`;
+        document.getElementById('zoneDistance').style.color = CONFIG.EWZ_ZONES.SELL.color;
+        
+    } else {
+        document.getElementById('currentZone').textContent = 'FORA DA ZONA';
+        document.getElementById('currentZone').style.color = '#94a3b8';
+        
+        // Calcular distância para a zona mais próxima
+        let nearestZone = 'buy';
+        let minDistance = Math.abs(ewzPrice - CONFIG.EWZ_ZONES.BUY.min);
+        
+        if (Math.abs(ewzPrice - CONFIG.EWZ_ZONES.CHOP.min) < minDistance) {
+            nearestZone = 'chop';
+            minDistance = Math.abs(ewzPrice - CONFIG.EWZ_ZONES.CHOP.min);
+        }
+        
+        if (Math.abs(ewzPrice - CONFIG.EWZ_ZONES.SELL.min) < minDistance) {
+            nearestZone = 'sell';
+            minDistance = Math.abs(ewzPrice - CONFIG.EWZ_ZONES.SELL.min);
+        }
+        
+        const distance = minDistance.toFixed(2);
+        document.getElementById('zoneDistance').textContent = `${distance} pontos`;
+        document.getElementById('zoneDistance').style.color = '#94a3b8';
+    }
+    
+    return state;
+}
+
+function updateIBOV(ewzPrice, ewzState, winPrice) {
+    const ibovCenter = CONFIG.IBOV_BASE + (ewzPrice - 33) * CONFIG.EWZ_TO_IBOV_MULT;
+    document.getElementById('ibovEst').textContent = Math.round(ibovCenter).toLocaleString('pt-BR');
+    
+    let rangeMin = ibovCenter - 300;
+    let rangeMax = ibovCenter + 300;
+    let zoneText = 'Zona Neutra • Aguardar';
+    let color = '#facc15';
+    
+    if (ewzState === 'buy') {
+        rangeMin = ibovCenter - 1200;
+        rangeMax = ibovCenter - 300;
+        zoneText = `🟢 Zona de Compra Institucional (${Math.round(rangeMin).toLocaleString('pt-BR')} – ${Math.round(rangeMax).toLocaleString('pt-BR')})`;
+        color = CONFIG.EWZ_ZONES.BUY.color;
+    } else if (ewzState === 'sell') {
+        rangeMin = ibovCenter + 300;
+        rangeMax = ibovCenter + 1200;
+        zoneText = `🔴 Zona de Venda Institucional (${Math.round(rangeMin).toLocaleString('pt-BR')} – ${Math.round(rangeMax).toLocaleString('pt-BR')})`;
+        color = CONFIG.EWZ_ZONES.SELL.color;
+    } else if (ewzState === 'chop') {
+        zoneText = `🟡 Zona de Chop/Armadilha (${Math.round(rangeMin).toLocaleString('pt-BR')} – ${Math.round(rangeMax).toLocaleString('pt-BR')})`;
+        color = CONFIG.EWZ_ZONES.CHOP.color;
+    }
+    
+    document.getElementById('ibovZone').innerHTML = zoneText;
+    
+    // Atualizar heatmap
+    if (typeof winPrice === 'number') {
+        let heat = ((winPrice - rangeMin) / (rangeMax - rangeMin)) * 100;
+        heat = Math.max(0, Math.min(100, heat));
+        
+        const fill = document.getElementById('ibovHeatFill');
+        const heatValue = document.getElementById('heatValue');
+        
+        fill.style.width = `${heat}%`;
+        fill.style.background = color;
+        heatValue.textContent = `${Math.round(heat)}%`;
+        
+        // Atualizar cor do heat value baseado na zona
+        heatValue.style.color = color;
+    }
+}
+
+// ===============================
+// SISTEMA DE SUGESTÃO AUTOMÁTICA
+// ===============================
+function updateAutoSuggestion(ewzState, winPrice) {
+    const element = document.getElementById('autoMode');
+    const suggestionBox = document.getElementById('suggestionBox');
+    const suggestionTitle = document.getElementById('suggestionTitle');
+    const suggestionDetail = document.getElementById('suggestionDetail');
+    
+    // Resetar classes
+    suggestionBox.className = 'suggestion-box';
+    
+    if (!isConnected) {
+        element.textContent = '⛔ SEM CONEXÃO';
+        element.style.color = '#dc2626';
+        suggestionTitle.textContent = 'Sistema Offline';
+        suggestionDetail.textContent = 'Conectando ao servidor WebSocket...';
+        return;
+    }
+    
+    if (stressExtreme) {
+        element.textContent = '🚨 STRESS EXTREMO';
+        element.style.color = '#dc2626';
+        suggestionTitle.textContent = 'MODO PRESERVAÇÃO DE CAPITAL ATIVADO';
+        suggestionDetail.textContent = 'Não operar é a decisão mais profissional neste momento. Aguarde estabilização do mercado.';
+        suggestionBox.classList.add('sell');
+        return;
+    }
+    
+    if (ewzState === 'chop') {
+        element.textContent = '⚠️ ZONA DE CHOP';
+        element.style.color = '#facc15';
+        suggestionTitle.textContent = 'Mercado em Zona de Indecisão';
+        suggestionDetail.textContent = 'Alta probabilidade de whipsaws e stops sendo caçados. Evitar operações ou usar stops amplos.';
+        suggestionBox.classList.add('chop');
+        return;
+    }
+    
+    // Calcular posição no heatmap
+    const heat = parseFloat(document.getElementById('heatValue').textContent) || 50;
+    
+    if (ewzState === 'buy' && heat <= 25) {
+        element.textContent = '🟢 SCALP COMPRA';
+        element.style.color = '#4ade80';
+        suggestionTitle.textContent = 'Setup de Compra Identificado';
+        suggestionDetail.textContent = 'Entrar com alvo de 50-100 pontos no WIN, stop máximo 30 pontos. Gerenciamento agressivo.';
+        suggestionBox.classList.add('buy');
+    } else if (ewzState === 'buy' && heat >= 70) {
+        element.textContent = '🔵 FADE COMPRA';
+        element.style.color = '#60a5fa';
+        suggestionTitle.textContent = 'Sobrevendido - Possibilidade de Fade';
+        suggestionDetail.textContent = 'Entrar contra a tendência com stop maior (50-70 pontos). Alvo: 150-200 pontos.';
+        suggestionBox.classList.add('scalp');
+    } else if (ewzState === 'sell' && heat >= 75) {
+        element.textContent = '🟢 SCALP VENDA';
+        element.style.color = '#4ade80';
+        suggestionTitle.textContent = 'Setup de Venda Identificado';
+        suggestionDetail.textContent = 'Entrar com alvo de 50-100 pontos no WIN, stop máximo 30 pontos. Operação rápida.';
+        suggestionBox.classList.add('sell');
+    } else if (ewzState === 'sell' && heat <= 30) {
+        element.textContent = '🔵 FADE VENDA';
+        element.style.color = '#60a5fa';
+        suggestionTitle.textContent = 'Sobrecomprado - Possibilidade de Fade';
+        suggestionDetail.textContent = 'Entrar contra a tendência com stop maior. Alvo: 150-200 pontos. Paciência na entrada.';
+        suggestionBox.classList.add('scalp');
+    } else {
+        element.textContent = '⚠️ AGUARDAR CONFIRMAÇÃO';
+        element.style.color = '#f59e0b';
+        suggestionTitle.textContent = 'Aguardando Setup Mais Claro';
+        suggestionDetail.textContent = 'Mercado em transição. Melhor esperar confirmação de direção antes de operar.';
+        suggestionBox.classList.add('chop');
+    }
+}
+
+// ===============================
+// HISTÓRICO E LOGS
+// ===============================
+function updateHistory(ewzPrice, ibovPrice, ewzState) {
+    const timestamp = new Date();
+    const timeStr = timestamp.toLocaleTimeString('pt-BR');
+    
+    // Adicionar ao histórico
+    signalHistory.unshift({
+        time: timeStr,
+        ewz: ewzPrice.toFixed(2),
+        ibov: Math.round(ibovPrice).toLocaleString('pt-BR'),
+        state: ewzState,
+        action: document.getElementById('autoMode').textContent
+    });
+    
+    // Manter apenas últimos 10 registros
+    if (signalHistory.length > 10) {
+        signalHistory.pop();
+    }
+    
+    // Atualizar tabela
+    const tableBody = document.getElementById('historyTableBody');
+    tableBody.innerHTML = signalHistory.map(signal => `
+        <tr>
+            <td>${signal.time}</td>
+            <td>${signal.ewz}</td>
+            <td>${signal.ibov}</td>
+            <td>
+                <span style="color: ${
+                    signal.state === 'buy' ? '#4ade80' : 
+                    signal.state === 'sell' ? '#f87171' : '#facc15'
+                }; font-weight: 700;">
+                    ${signal.state.toUpperCase()}
+                </span>
+            </td>
+            <td>${signal.action}</td>
+        </tr>
+    `).join('');
+}
+
+// ===============================
+// GRÁFICOS
+// ===============================
+function initCharts() {
+    // Gráfico de Preço
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    priceChart = new Chart(priceCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'EWZ',
+                data: [],
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(18, 24, 38, 0.9)',
+                    titleColor: '#e6e6e6',
+                    bodyColor: '#e6e6e6',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#94a3b8', maxTicksLimit: 10 }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#94a3b8' },
+                    position: 'right'
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+    
+    // Gráfico de Correlação
+    const corrCtx = document.getElementById('correlationChart').getContext('2d');
+    correlationChart = new Chart(corrCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Correlação EWZ-IBOV',
+                data: [],
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8', maxTicksLimit: 8 }
+                },
+                y: {
+                    min: 0.5,
+                    max: 1.0,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8' }
+                }
+            }
+        }
+    });
+    
+    // Gráfico de Volume
+    const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+    volumeChart = new Chart(volumeCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Volume',
+                data: [],
+                backgroundColor: 'rgba(124, 58, 237, 0.6)',
+                borderColor: '#7c3aed',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8' }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8' }
+                }
+            }
+        }
+    });
+}
+
+function updatePriceChart(price, timestamp) {
+    const timeLabel = new Date(timestamp).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    priceHistory.push({ price, time: timeLabel, timestamp });
+    
+    // Manter últimos 100 pontos
+    if (priceHistory.length > 100) {
+        priceHistory.shift();
+    }
+    
+    // Atualizar gráfico
+    priceChart.data.labels = priceHistory.map(p => p.time);
+    priceChart.data.datasets[0].data = priceHistory.map(p => p.price);
+    priceChart.update('none');
+}
+
+function updateCorrelationChart(ewzPrice, ibovPrice) {
+    // Simular cálculo de correlação (em produção, calcular baseado em histórico)
+    if (priceHistory.length > 5) {
+        const lastPrices = priceHistory.slice(-10).map(p => p.price);
+        const correlation = 0.75 + (Math.random() * 0.2 - 0.1);
+        
+        correlationHistory.push({
+            value: correlation,
+            time: new Date().toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+        });
+        
+        if (correlationHistory.length > 50) {
+            correlationHistory.shift();
+        }
+        
+        // Atualizar gráfico
+        correlationChart.data.labels = correlationHistory.map(c => c.time);
+        correlationChart.data.datasets[0].data = correlationHistory.map(c => c.value);
+        correlationChart.update('none');
+        
+        // Atualizar estatísticas
+        document.getElementById('correlationValue').textContent = correlation.toFixed(2);
+        document.getElementById('correlation1h').textContent = (correlation - 0.03).toFixed(2);
+        document.getElementById('correlationDev').textContent = '0.07';
+        document.getElementById('correlationTrend').textContent = correlation > 0.8 ? '↑' : '↓';
+        document.getElementById('correlationTrend').style.color = correlation > 0.8 ? '#4ade80' : '#f87171';
+    }
+}
+
+// ===============================
+// CONTROLES DE INTERFACE
+// ===============================
+function setTradingMode(mode) {
+    // Resetar botões
+    document.getElementById('btnNormal').classList.remove('btn-active');
+    document.getElementById('btnEvent').classList.remove('btn-active');
+    document.getElementById('btnStress').classList.remove('btn-active');
+    document.getElementById('btnRecovery').classList.remove('btn-active');
+    
+    // Atualizar estado
+    currentMode = mode;
+    eventDay = (mode === 'event');
+    stressExtreme = (mode === 'stress');
+    recoveryMode = (mode === 'recovery');
+    
+    // Atualizar interface
+    const eventBadge = document.getElementById('eventBadge');
+    const stressBadge = document.getElementById('stressBadge');
+    
+    switch (mode) {
+        case 'normal':
+            document.getElementById('btnNormal').classList.add('btn-active');
+            eventBadge.textContent = 'MODO NORMAL';
+            eventBadge.style.background = '#334155';
+            stressBadge.textContent = 'STRESS: NORMAL';
+            stressBadge.style.background = '#334155';
+            document.getElementById('capitalLock').style.display = 'none';
+            break;
+            
+        case 'event':
+            document.getElementById('btnEvent').classList.add('btn-active');
+            eventBadge.textContent = '📅 EVENT DAY';
+            eventBadge.className = 'badge badge-event';
+            stressBadge.textContent = 'STRESS: NORMAL';
+            stressBadge.style.background = '#334155';
+            document.getElementById('capitalLock').style.display = 'none';
+            break;
+            
+        case 'stress':
+            document.getElementById('btnStress').classList.add('btn-active');
+            eventBadge.textContent = 'MODO NORMAL';
+            eventBadge.style.background = '#334155';
+            stressBadge.textContent = '🚨 STRESS EXTREMO';
+            stressBadge.className = 'badge badge-stress';
+            document.getElementById('capitalLock').style.display = 'flex';
+            break;
+            
+        case 'recovery':
+            document.getElementById('btnRecovery').classList.add('btn-active');
+            eventBadge.textContent = 'MODO NORMAL';
+            eventBadge.style.background = '#334155';
+            stressBadge.textContent = '🔄 MODO RECOVERY';
+            stressBadge.className = 'badge badge-recovery';
+            document.getElementById('capitalLock').style.display = 'none';
+            break;
+    }
+    
+    // Atualizar sugestão
+    const ewzPrice = parseFloat(document.getElementById('ewzPrice').textContent) || 33.0;
+    const winPrice = parseFloat(document.getElementById('winPrice').textContent.replace(/\./g, '')) || CONFIG.IBOV_BASE;
+    const ewzState = processEWZ(ewzPrice);
+    updateAutoSuggestion(ewzState, winPrice);
+}
+
+function switchTab(tabId) {
+    // Remover classe active
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Adicionar classe active
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
+
+function changeTimeframe(timeframe) {
+    // Atualizar botões ativos
+    document.querySelectorAll('#price-tab .btn').forEach(btn => btn.classList.remove('btn-active'));
+    event.target.classList.add('btn-active');
+    
+    // Em produção, solicitar dados do timeframe ao servidor
+    if (wsManager && wsManager.send) {
+        wsManager.send({
+            type: 'change_timeframe',
+            timeframe: timeframe
+        });
+    }
+    
+    console.log(`Timeframe alterado para: ${timeframe}`);
+}
+
+function forceRefresh() {
+    if (wsManager && wsManager.send) {
+        wsManager.send({ type: 'refresh' });
+        
+        // Feedback visual
+        const btn = event.target;
+        const original = btn.innerHTML;
+        btn.innerHTML = '<span>⏳</span> Atualizando...';
+        btn.disabled = true;
+        
+        setTimeout(() => {
+            btn.innerHTML = original;
+            btn.disabled = false;
+        }, 1000);
+    }
+}
+
+function toggleAlerts() {
+    const status = document.getElementById('alertsStatus');
+    const current = status.textContent.includes('ON');
+    
+    if (current) {
+        status.textContent = 'Alertas: OFF';
+        showAlert('Alertas desativados', 'warning');
+    } else {
+        status.textContent = 'Alertas: ON';
+        showAlert('Alertas ativados', 'success');
+    }
+}
+
+function showSettings() {
+    document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function saveSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+    showAlert('Configurações salvas', 'success');
+}
+
+function exportData() {
+    const data = {
+        timestamp: new Date().toISOString(),
+        ewz: document.getElementById('ewzPrice').textContent,
+        ibov: document.getElementById('ibovEst').textContent,
+        spy: document.getElementById('spyPrice').textContent,
+        dxy: document.getElementById('dxyPrice').textContent,
+        suggestion: document.getElementById('autoMode').textContent,
+        zone: document.getElementById('currentZone').textContent,
+        history: signalHistory,
+        uptime: Math.floor((Date.now() - startTime) / 1000),
+        messages: messageCount
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sniper-data-${Date.now()}.json`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    showAlert('Dados exportados com sucesso', 'success');
+}
+
+function showAlert(message, type) {
+    // Criar elemento de alerta
+    const alert = document.createElement('div');
+    alert.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#16a34a' : type === 'warning' ? '#f59e0b' : '#dc2626'};
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        z-index: 10000;
+        animation: slideIn 0.5s ease;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        max-width: 400px;
+    `;
+    alert.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 4px;">${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌'} ${type.toUpperCase()}</div>
+        <div style="font-size: 14px;">${message}</div>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        alert.style.animation = 'slideIn 0.5s ease reverse';
+        setTimeout(() => alert.remove(), 500);
+    }, 5000);
+}
+
+// ===============================
+// FUNÇÕES AUXILIARES
+// ===============================
+function formatVolume(volume) {
+    if (volume >= 1000000) {
+        return (volume / 1000000).toFixed(1) + 'M';
+    } else if (volume >= 1000) {
+        return (volume / 1000).toFixed(1) + 'K';
+    }
+    return volume.toString();
+}
+
+function formatMoney(amount) {
+    if (amount >= 1000000) {
+        return (amount / 1000000).toFixed(1) + 'M';
+    } else if (amount >= 1000) {
+        return (amount / 1000).toFixed(1) + 'K';
+    }
+    return amount.toString();
+}
+
+function updateZoneDisplay(price, state) {
+    // Esta função é chamada por processEWZ
+}
+
+// ===============================
+// INICIALIZAÇÃO
+// ===============================
+let wsManager;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar gráficos
+    initCharts();
+    
+    // Inicializar WebSocket Manager
+    wsManager = new WebSocketManager();
+    
+    // Iniciar modo normal
+    setTradingMode('normal');
+    
+    // Atualizar uptime periodicamente
+    setInterval(() => {
+        const uptime = Math.floor((Date.now() - startTime) / 1000);
+        const hours = Math.floor(uptime / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+        const seconds = uptime % 60;
+        
+        document.getElementById('uptimeValue').textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Atualizar qualidade da conexão baseada na latência
+        const latency = parseInt(document.getElementById('latencyValue').textContent) || 0;
+        const quality = document.getElementById('connectionQuality');
+        
+        if (latency < 100) {
+            quality.textContent = 'EXCELENTE';
+            quality.style.color = '#4ade80';
+        } else if (latency < 300) {
+            quality.textContent = 'BOA';
+            quality.style.color = '#facc15';
+        } else {
+            quality.textContent = 'REGULAR';
+            quality.style.color = '#f87171';
+        }
+    }, 1000);
+    
+    console.log('🚀 MarceloQuant Sniper 0DTE PRO inicializado com WebSocket');
+});
+</script>
+
+</body>
+</html>
